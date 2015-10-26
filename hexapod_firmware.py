@@ -68,7 +68,7 @@ class HFW(object):
         start_time = time.time()
 
         # apply to servo controller previous frame's leg pulse widths, instruct to move over a frame period
-        # assumes this frame won't take loner than a frame period to calculate
+        # assumes this frame won't take longer than a frame period to calculate
         if hasattr(self, "leg_PWs"):
             self.move_motors(self.leg_PWs)
 
