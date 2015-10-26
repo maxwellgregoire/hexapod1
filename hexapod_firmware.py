@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import serial
 
 # NOTES: 
 # for any array of size [6,3]: first index is leg index, second index is motor index 
@@ -20,14 +21,43 @@ class HFW(object):
     d_ul = 2.0 # upper leg length
     d_lg = 2.625 # lower leg length
 
+    # for leg_angles_to_PWs()
+    std_angles = np.array([
+        [0.0, 0.0, 90.0],
+        [0.0, 0.0, 90.0],
+        [0.0, 0.0, 90.0],
+        [0.0, 0.0, 90.0],
+        [0.0, 0.0, 90.0],
+        [0.0, 0.0, 90.0]])
+    std_PWs = np.array([
+        [1910, 1670, 1450],
+        [1685, 1640, 1470],
+        [1050, 1690, 1440],
+        [1130, 1390, 1600],
+        [1475, 1380, 1505],
+        [2125, 1420, 1420]])
+    motor_m = 2000.0/180.0
+    motor_m_sign = np.array([
+        [1.0, -1.0, 1.0],
+        [1.0, -1.0, 1.0],
+        [1.0, -1.0, 1.0],
+        [-1.0, 1.0, -1.0],
+        [-1.0, 1.0, -1.0],
+        [-1.0, 1.0, -1.0]])
 
     def __init__(self):
         """ Initializes a HFW object """
 
+        # open connection to servo controller
+        self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
 
+        # run main loop
         self.quit = False
         while self.quit == False:
             self.step()
+
+        # close connection
+        self.port.close()
 
     def step(self):
         """ Reads controller input and runs the hexapod accordingly for the next frame period """
@@ -39,6 +69,8 @@ class HFW(object):
 
         # apply to servo controller previous frame's leg pulse widths, instruct to move over a frame period
         # assumes this frame won't take loner than a frame period to calculate
+        if hasattr(self, "leg_PWs"):
+            self.move_motors(self.leg_PWs)
 
         # read controller input
 
@@ -55,10 +87,11 @@ class HFW(object):
 
         # calculate new leg angles based on new leg positions
         leg_angles = np.zeros([6,3],dtype=float)
-        for i in range(0,6):
-            leg_angles[i] = self.leg_coords_to_angles(leg_coords[i])
+        for ileg in range(0,6):
+            leg_angles[ileg] = self.leg_coords_to_angles(leg_coords[ileg])
 
         # calculate new leg pulse widths based on new leg angles
+        self.leg_PWs = self.leg_angles_to_PWs(leg_angles)
 
         # record time at which computation ends
         end_time = time.time()
@@ -66,7 +99,27 @@ class HFW(object):
         # sleep for the remainder of the frame period
         time.sleep(self.frame_period/1000.0 - (end_time - start_time))
 
-    #argument is 3 element array: x_g, y_g, z_g
+    # argument is a [6,3] array
+    def move_motors(self, leg_PWs):
+        """ Moves the motors according to the specified pulse widths """
+
+        cmd_str = "" 
+
+        for iside in range(0,2):
+            for ileg in range(0,3):
+                for imotor in range(0,3):
+
+                    motor_index = iside*16 + ileg*4 + imotor
+                    cmd_str_seg = "#" + str(motor_index) + "P" + str(leg_PWs[iside*3+ileg][imotor])
+                    cmd_str += cmd_str_seg
+
+        cmd_str += "T"
+        cmd_str += str(int(self.frame_period))
+        cmd_str += "\r"
+        #######################self.port.write(cmd_str)
+
+
+    # argument is 3 element array: x_g, y_g, z_g
     def leg_coords_to_angles(self, coords):
         """ Converts one set of leg coords to leg angles """
 
@@ -87,6 +140,9 @@ class HFW(object):
     def leg_angles_to_PWs(self, angles):
         """ Converts all leg angles to motor pulse widths """
 
-        pass
+        #formula for pulse widths as a function of angle:
+        # (target PW) = ((target angle) - (angle for known PW))*m + (known PW)
+        #       where m = +/- 2000/180 units of pulse width per degree (sign depends on motor rotation direction)
+        return ((angles - self.std_angles)*self.motor_m*self.motor_m_sign).astype(int) + self.std_PWs        
 
 
