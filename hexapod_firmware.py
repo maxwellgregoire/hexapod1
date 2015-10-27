@@ -50,11 +50,11 @@ class HFW(object):
         """ Initializes a HFW object """
 
         # initialize curses, change terminal settings for game-like keyboard input
-        self.stdscr = curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        self.stdscr.keypad(True)
-        self.stdscr.nodelay(True)
+        self.stdscr = curses.initscr() # initialize curses
+        curses.noecho() # disable terminal echo on key press
+        curses.cbreak() # allow instant response to key presses
+        self.stdscr.keypad(True) # enable keypad mode so you can input non alphanumeric keys
+        self.stdscr.nodelay(True) # polling for keys does not halt program
 
         try:
 
