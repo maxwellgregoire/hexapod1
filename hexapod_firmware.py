@@ -1,4 +1,5 @@
 import time
+import curses
 import numpy as np
 import serial
 
@@ -48,21 +49,39 @@ class HFW(object):
     def __init__(self):
         """ Initializes a HFW object """
 
-        # open connection to servo controller
-        self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
+        # initialize curses, change terminal settings for game-like keyboard input
+        self.stdscr = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        self.stdscr.keypad(True)
+        self.stdscr.nodelay(True)
 
-        # run main loop
-        self.quit = False
-        while self.quit == False:
-            self.step()
+        try:
 
-        # close connection
-        self.port.close()
+            # open connection to servo controller
+            self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
+
+            # run main loop
+            self.quit = False
+            while not self.quit:
+                self.step()
+
+            # close connection
+            self.port.close()
+
+        finally:
+            # reset terminal settings before exiting for any reason
+            curses.nocbreak()
+            self.stdscr.keypad(False)
+            self.stdscr.nodelay(False)
+            curses.echo()
+            curses.endwin()
+            print "Program exited safely"
 
     def step(self):
         """ Reads controller input and runs the hexapod accordingly for the next frame period """
 
-        print "stepping"
+        print "stepping\r"
 
         # record time at which computation starts
         start_time = time.time()
@@ -73,6 +92,15 @@ class HFW(object):
             self.move_motors(self.leg_PWs)
 
         # read controller input
+        # TODO: read keystrokes into an array or list or whatever instead of printing them out
+        # do things with that list once you have it
+        while 1:
+            c = self.stdscr.getch()
+            print c, "\r"
+            if c == -1:
+                break;
+            elif c == ord('q'):
+                self.quit = True
 
         # calculate new floor position based on input
 
