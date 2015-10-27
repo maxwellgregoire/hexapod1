@@ -46,8 +46,10 @@ class HFW(object):
         [-1.0, 1.0, -1.0],
         [-1.0, 1.0, -1.0]])
 
-    def __init__(self):
+    def __init__(self, simulate = False):
         """ Initializes a HFW object """
+
+        self.simulate = simulate
 
         # initialize curses, change terminal settings for game-like keyboard input
         self.stdscr = curses.initscr() # initialize curses
@@ -59,7 +61,8 @@ class HFW(object):
         try:
 
             # open connection to servo controller
-            self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
+            if not self.simulate:
+                self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
 
             # run main loop
             self.quit = False
@@ -67,7 +70,8 @@ class HFW(object):
                 self.step()
 
             # close connection
-            self.port.close()
+            if not self.simulate:
+                self.port.close()
 
         finally:
             # reset terminal settings before exiting for any reason
@@ -94,17 +98,21 @@ class HFW(object):
         # read controller input
         # TODO: read keystrokes into an array or list or whatever instead of printing them out
         # do things with that list once you have it
+        keycodes = set()
         while 1:
-            c = self.stdscr.getch()
-            print c, "\r"
-            if c == -1:
+            keycode = self.stdscr.getch()
+            if keycode == -1:
                 break;
-            elif c == ord('q'):
-                self.quit = True
+            else:
+                keycodes.add(keycode)
 
-        # calculate new floor position based on input
+        # if user pressed q, quit
+        if ord('q') in keycodes:
+            self.quit = True
 
-        # calculate new leg positions based on new floor position
+        # pass the rest of the keycodes to the module that controls leg positions
+            # calculate new floor position based on input
+            # calculate new leg positions based on new floor position
         leg_coords = np.array([     # TEMP
             [3.625,2.875,-1.375],   #
             [3.625,2.875,-1.375],   #
@@ -144,7 +152,9 @@ class HFW(object):
         cmd_str += "T"
         cmd_str += str(int(self.frame_period))
         cmd_str += "\r"
-        #######################self.port.write(cmd_str)
+        if not self.simulate:
+            #######################self.port.write(cmd_str)
+            pass
 
 
     # argument is 3 element array: x_g, y_g, z_g
