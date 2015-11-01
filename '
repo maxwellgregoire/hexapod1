@@ -5,17 +5,15 @@ import serial
 from kinematics import Kinematics
 
 # NOTES: 
-# distances in inches, time in seconds
 # for any array of size [6,3]: first index is leg index, second index is motor index 
 # PW stands for pulse width
 
 class HFW(object):
     """ Main hexapod firmware class """
 
-    frame_period = 1.0 # s
+    frame_period = 1000.0 # ms
 
-    # distances used in leg_coords_to_angles()
-    # all units in inches
+    # for leg_coords_to_angles()
     s = 1.0 # side index (+1 for +y side, -1 for -y side)
     z_u = 0.625 # z distance between upper leg pivot and origin
     x_s = 2.25 # x distance between shoulder pivot and origin
@@ -139,7 +137,7 @@ class HFW(object):
         end_time = time.time()
 
         # sleep for the remainder of the frame period
-        time.sleep(self.frame_period - (end_time - start_time))
+        time.sleep(self.frame_period/1000.0 - (end_time - start_time))
 
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
@@ -156,7 +154,7 @@ class HFW(object):
                     cmd_str += cmd_str_seg
 
         cmd_str += "T"
-        cmd_str += str(int(self.frame_period*1000))
+        cmd_str += str(int(self.frame_period))
         cmd_str += "\r"
         if not self.simulate:
             #######################self.port.write(cmd_str)
