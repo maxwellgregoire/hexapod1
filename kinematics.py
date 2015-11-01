@@ -26,10 +26,10 @@ class Kinematics(object):
     max_vert_speed = 0.25 # in/s
     max_zrot_speed = np.pi/8.0 # rad/s # maximum angular speed of rotation about z axis
 
-    def __init__(self):
-        """ Initializes a LegPos object """
+    def __init__(self, starting_leg_coords):
+        """ Initializes a Kinematics object with initial leg positions """
 
-        pass
+        self.leg_coords = starting_leg_coords
 
     def get_leg_coords(self, keycodes, dt):
         """ Determines the next frame's leg coordinates based on controller input """
@@ -51,11 +51,11 @@ class Kinematics(object):
             dy += 1
 
         if dx == 0 or dy == 0:
-            dx *= dt*max_horiz_speed
-            dy *= dt*max_horiz_speed
+            dx *= dt*self.max_horiz_speed
+            dy *= dt*self.max_horiz_speed
         else:
-            dx *= dt*max_horiz_speed*np.sqrt(2.0)
-            dy *= dt*max_horiz_speed*np.sqrt(2.0)
+            dx *= dt*self.max_horiz_speed*np.sqrt(2.0)
+            dy *= dt*self.max_horiz_speed*np.sqrt(2.0)
 
         # check for controller input regarding left/right rotation
         if ord('a') in keycodes:
@@ -63,7 +63,7 @@ class Kinematics(object):
         if ord('d') in keycodes:
             dzrot += 1
 
-        dzrot *= dt*max_zrot_speed
+        dzrot *= dt*self.max_zrot_speed
 
         # check for controller input regarding vertical translation
         if ord('n') in keycodes:
@@ -71,4 +71,6 @@ class Kinematics(object):
         if ord('m') in keycodes:
             dz -= 1
 
-        dz *= dt*max_vert_speed
+        dz *= dt*self.max_vert_speed
+
+        return self.leg_coords

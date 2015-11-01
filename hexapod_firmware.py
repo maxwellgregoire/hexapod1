@@ -7,6 +7,13 @@ from kinematics import Kinematics
 # NOTES: 
 # distances in inches, time in seconds
 # for any array of size [6,3]: first index is leg index, second index is motor index 
+# leg indices correspond to the following legs:
+#   [0]: back left
+#   [1]: middle left
+#   [2]: front left
+#   [3]: back right
+#   [4]: middle right
+#   [5]: front right
 # PW stands for pulse width
 
 class HFW(object):
@@ -16,32 +23,31 @@ class HFW(object):
 
     # distances used in leg_coords_to_angles()
     # all units in inches
-    s = 1.0 # side index (+1 for +y side, -1 for -y side)
     z_u = 0.625 # z distance between upper leg pivot and origin
-    x_s = 2.25 # x distance between shoulder pivot and origin
-    y_s = 1.125 # y distance between shoulder pivot and origin
+    x_s = np.array([-2.25, 0.0, 2.25, -2.25, 0.0, 2.25]) # x distance between shoulder pivot and origin
+    y_s = np.array([1.125, 1.5625, 1.125, -1.125, -1.5625, -1.125]) # y distance between shoulder pivot and origin
     d_su = 0.5 # distance between shoulder pivot and upper leg pivot in plane parallel to upper and lower leg
     d_sg = 0.125 # distance between shoulder pivot and ground contact in plane normal to upper leg
     d_ul = 2.0 # upper leg length
     d_lg = 2.625 # lower leg length
 
     # for leg_angles_to_PWs()
-    std_angles = np.array([
-        [0.0, 0.0, 90.0],
-        [0.0, 0.0, 90.0],
-        [0.0, 0.0, 90.0],
-        [0.0, 0.0, 90.0],
-        [0.0, 0.0, 90.0],
-        [0.0, 0.0, 90.0]])
-    std_PWs = np.array([
+    std_angles = np.array([ # reference angles at which pulse width is known
+        [0.0, 0.0, 0.5*np.pi],
+        [0.0, 0.0, 0.5*np.pi],
+        [0.0, 0.0, 0.5*np.pi],
+        [0.0, 0.0, 0.5*np.pi],
+        [0.0, 0.0, 0.5*np.pi],
+        [0.0, 0.0, 0.5*np.pi]])
+    std_PWs = np.array([ # pulse widths at reference angles
         [1910, 1670, 1450],
         [1685, 1640, 1470],
         [1050, 1690, 1440],
         [1130, 1390, 1600],
         [1475, 1380, 1505],
         [2125, 1420, 1420]])
-    motor_m = 2000.0/180.0
-    motor_m_sign = np.array([
+    motor_m = 2000.0/np.pi # the full range of pulse widths, from 500 to 2500, corresponds to pi radians of rotation
+    motor_m_sign = np.array([ # the sign of m
         [1.0, -1.0, 1.0],
         [1.0, -1.0, 1.0],
         [1.0, -1.0, 1.0],
@@ -62,7 +68,14 @@ class HFW(object):
         self.stdscr.nodelay(True) # polling for keys does not halt program
 
         # initialize Kinematics 
-        self.kinematics = Kinematics()
+        starting_leg_coords = ([
+            [-3.625,2.875,-1.375],   # back left  
+            [0.0,4.1,-1.375],        # middle left  
+            [3.625,2.875,-1.375],    # front left   
+            [-3.625,-2.875,-1.375],  # back right  
+            [0.0,-4.1,-1.375],       # middle right  
+            [3.625,-2.875,-1.375]])  # front right 
+        self.kinematics = Kinematics(starting_leg_coords)
 
         try:
 
@@ -87,6 +100,8 @@ class HFW(object):
             curses.echo()
             curses.endwin()
             print "Program exited safely"
+            print self.leg_angles*180.0/np.pi
+            print self.leg_PWs
 
     def step(self):
         """ Reads controller input and runs the hexapod accordingly for the next frame period """
@@ -119,21 +134,15 @@ class HFW(object):
         # pass the rest of the keycodes to the module that controls leg positions
             # calculate new floor position based on input
             # calculate new leg positions based on new floor position
-        leg_coords = np.array([     # TEMP
-            [3.625,2.875,-1.375],   #
-            [3.625,2.875,-1.375],   #
-            [3.625,2.875,-1.375],   #
-            [3.625,2.875,-1.375],   #
-            [3.625,2.875,-1.375],   #
-            [3.625,2.875,-1.375]])  # TEMP
+        leg_coords = self.kinematics.get_leg_coords(keycodes, self.frame_period)
 
         # calculate new leg angles based on new leg positions
-        leg_angles = np.zeros([6,3],dtype=float)
+        self.leg_angles = np.zeros([6,3],dtype=float)
         for ileg in range(0,6):
-            leg_angles[ileg] = self.leg_coords_to_angles(leg_coords[ileg])
+            self.leg_angles[ileg] = self.leg_coords_to_angles(leg_coords[ileg], ileg)
 
         # calculate new leg pulse widths based on new leg angles
-        self.leg_PWs = self.leg_angles_to_PWs(leg_angles)
+        self.leg_PWs = self.leg_angles_to_PWs(self.leg_angles)
 
         # record time at which computation ends
         end_time = time.time()
@@ -144,6 +153,8 @@ class HFW(object):
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
         """ Moves the motors according to the specified pulse widths """
+
+        # format the string that we send to the servo controller
 
         cmd_str = "" 
 
@@ -158,23 +169,43 @@ class HFW(object):
         cmd_str += "T"
         cmd_str += str(int(self.frame_period*1000))
         cmd_str += "\r"
+
+        # send the string to the servo controller
         if not self.simulate:
             #######################self.port.write(cmd_str)
             pass
 
 
-    # argument is 3 element array: x_g, y_g, z_g
-    def leg_coords_to_angles(self, coords):
+    # first argument is 3 element array: x_g, y_g, z_g
+    # second argument is the leg index (an int in range(0,6))
+    def leg_coords_to_angles(self, coords, ileg):
         """ Converts one set of leg coords to leg angles """
+
+        # this function is the result of several pages of diagrams and math on paper, 
+        #   hence the bad documentation
+        #   wow such proprietary
 
         x_g = coords[0]
         y_g = coords[1]
         z_g = coords[2]
-        r_sg = np.sqrt((x_g-self.x_s)**2 + (y_g-self.y_s)**2)
+
+        # distance in x-y plane between shoulder pivot and ground contact
+        r_sg = np.sqrt((x_g-self.x_s[ileg])**2 + (y_g-self.y_s[ileg])**2)
+
+        # distance between upper leg pivot and ground contact in plane parallel to upper and lower leg
         d_ug = np.sqrt((r_sg-self.d_su)**2 + (self.z_u-z_g)**2)
 
-        theta_s = np.arctan2((x_g-self.x_s),(y_g-self.y_s)) - np.arcsin(self.d_sg/r_sg)
+        # shoulder angle
+        theta_s = 0.0
+        if (ileg < 3):
+            theta_s = np.arctan2((x_g-self.x_s[ileg]),(y_g-self.y_s[ileg])) - np.arcsin(self.d_sg/r_sg)
+        else:
+            theta_s = np.arctan2((x_g-self.x_s[ileg]),-(y_g-self.y_s[ileg])) - np.arcsin(self.d_sg/r_sg)
+
+        # upper leg angle
         theta_l = np.arccos((self.d_ul**2+self.d_lg**2-d_ug**2)/(2*self.d_ul*self.d_lg))
+
+        # lower leg angle
         theta_u = np.arcsin(self.d_lg*np.sin(theta_l)/d_ug) - np.arctan2((self.z_u-z_g),(r_sg-self.d_su))
 
         angles = np.array([theta_s, theta_u, theta_l])
@@ -186,7 +217,7 @@ class HFW(object):
 
         #formula for pulse widths as a function of angle:
         # (target PW) = ((target angle) - (angle for known PW))*m + (known PW)
-        #       where m = +/- 2000/180 units of pulse width per degree (sign depends on motor rotation direction)
+        #       where m = +/- 2000/pi units of pulse width per radian (sign depends on motor rotation direction)
         return ((angles - self.std_angles)*self.motor_m*self.motor_m_sign).astype(int) + self.std_PWs        
 
 
