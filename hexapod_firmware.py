@@ -113,8 +113,10 @@ class HFW(object):
 
         # apply to servo controller previous frame's leg pulse widths, instruct to move over a frame period
         # assumes this frame won't take longer than a frame period to calculate
+        # if the program attempted to assign invalid motor positions, quit
         if hasattr(self, "leg_PWs"):
-            self.move_motors(self.leg_PWs)
+            if not self.move_motors(self.leg_PWs):
+                self.quit = True
 
         # read controller input
         # TODO: read keystrokes into an array or list or whatever instead of printing them out
@@ -152,7 +154,14 @@ class HFW(object):
 
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
-        """ Moves the motors according to the specified pulse widths """
+        """ Moves the motors according to the specified pulse widths. Returns true if successful """
+
+        # check that all the pulse widths are valid (i.e. between 500 and 2500)
+        for ileg in range(0,6):
+            for imotor in range(0,3):
+                if leg_PWs[ileg][imotor] < 500 or 2500 < leg_PWs[ileg][imotor]:
+                    print "ERROR: leg PW of", leg_PWs[ileg][imotor], "invalid on leg", ileg, "motor", imotor
+                    return False
 
         # format the string that we send to the servo controller
 
@@ -175,6 +184,7 @@ class HFW(object):
             #######################self.port.write(cmd_str)
             pass
 
+        return True
 
     # first argument is 3 element array: x_g, y_g, z_g
     # second argument is the leg index (an int in range(0,6))
