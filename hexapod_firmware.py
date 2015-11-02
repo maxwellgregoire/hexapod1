@@ -32,14 +32,14 @@ class HFW(object):
     d_lg = 2.625 # lower leg length
 
     # for leg_angles_to_PWs()
-    std_angles = np.array([ # reference angles at which pulse width is known
+    std_angles = np.array([ # reference angles at which pulse width is known (rad)
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi]])
-    std_PWs = np.array([ # pulse widths at reference angles
+    std_PWs = np.array([ # pulse widths at reference angles 
         [1910, 1670, 1450],
         [1685, 1640, 1470],
         [1050, 1690, 1440],
@@ -47,6 +47,7 @@ class HFW(object):
         [1475, 1380, 1505],
         [2125, 1420, 1420]])
     motor_m = 2000.0/np.pi # the full range of pulse widths, from 500 to 2500, corresponds to pi radians of rotation
+                           # pulse width units per rad
     motor_m_sign = np.array([ # the sign of m
         [1.0, -1.0, 1.0],
         [1.0, -1.0, 1.0],
@@ -67,17 +68,10 @@ class HFW(object):
         self.stdscr.keypad(True) # enable keypad mode so you can input non alphanumeric keys
         self.stdscr.nodelay(True) # polling for keys does not halt program
 
-        # initialize Kinematics 
-        starting_leg_coords = ([
-            [-3.625,2.875,-1.375],   # back left  
-            [0.0,4.1,-1.375],        # middle left  
-            [3.625,2.875,-1.375],    # front left   
-            [-3.625,-2.875,-1.375],  # back right  
-            [0.0,-4.1,-1.375],       # middle right  
-            [3.625,-2.875,-1.375]])  # front right 
-        self.kinematics = Kinematics(starting_leg_coords)
-
         try:
+
+            # initialize Kinematics 
+            self.kinematics = Kinematics()
 
             # open connection to servo controller
             if not self.simulate:
@@ -100,8 +94,6 @@ class HFW(object):
             curses.echo()
             curses.endwin()
             print "Program exited safely"
-            print self.leg_angles*180.0/np.pi
-            print self.leg_PWs
 
     def step(self):
         """ Reads controller input and runs the hexapod accordingly for the next frame period """

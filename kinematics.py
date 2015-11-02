@@ -26,19 +26,31 @@ class Kinematics(object):
     max_vert_speed = 0.25 # in/s
     max_zrot_speed = np.pi/8.0 # rad/s # maximum angular speed of rotation about z axis
 
-    def __init__(self, starting_leg_coords):
+    z_floor = -1.375 # in
+
+    def __init__(self):
         """ Initializes a Kinematics object with initial leg positions """
 
-        self.leg_coords = starting_leg_coords
+        # initialize starting leg coords (each row is [x,y,z])
+        self.leg_coords = np.array([
+            [-3.625,2.875,self.z_floor],   # back left  
+            [0.0,4.1,self.z_floor],        # middle left  
+            [3.625,2.875,self.z_floor],    # front left   
+            [-3.625,-2.875,self.z_floor],  # back right  
+            [0.0,-4.1,self.z_floor],       # middle right  
+            [3.625,-2.875,self.z_floor]])  # front right
+
+        # whether or not the legs are on the ground
+        self.is_on_ground = np.ones(6, dtype = np.bool)
 
     def get_leg_coords(self, keycodes, dt):
         """ Determines the next frame's leg coordinates based on controller input """
 
-        # determine how the robot will move
-        dx = 0
-        dy = 0
-        dz = 0
-        dzrot = 0 # rotation about z axis
+        # determine how the floor will move w.r.t. the robot
+        dx = 0 # in
+        dy = 0 # in
+        dz = 0 # in
+        dzrot = 0 # rotation about z axis (rad)
 
         # check for controller input regarding horizontal translation
         if ord('i') in keycodes:
@@ -72,5 +84,18 @@ class Kinematics(object):
             dz -= 1
 
         dz *= dt*self.max_vert_speed
+
+        # move the legs that are on the ground
+        for ileg in range(0,6):
+            if is_on_ground[ileg]:
+
+                # translate
+                self.leg_coords[ileg] += np.array([dx, dy, dz])
+
+                # rotate
+                self.leg_coords[ileg] = np.array([
+                    self.leg_coords[ileg][0]*np.cos(dzrot) - self.leg_coords[ileg][1]*np.sin(dzrot),
+                    self.leg_coords[ileg][0]*np.sin(dzrot) + self.leg_coords[ileg][1]*np.cos(dzrot),
+                    self.leg_coords[ileg][2]])
 
         return self.leg_coords
