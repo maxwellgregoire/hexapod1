@@ -87,7 +87,7 @@ class Kinematics(object):
 
         # move the legs that are on the ground
         for ileg in range(0,6):
-            if is_on_ground[ileg]:
+            if self.is_on_ground[ileg]:
 
                 # translate
                 self.leg_coords[ileg] += np.array([dx, dy, dz])

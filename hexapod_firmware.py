@@ -76,6 +76,7 @@ class HFW(object):
             # open connection to servo controller
             if not self.simulate:
                 self.port = serial.Serial("/dev/ttyAMA0", baudrate=9600, timeout=3.0)
+                time.sleep(1.0)
 
             # run main loop
             self.quit = False
@@ -173,8 +174,10 @@ class HFW(object):
 
         # send the string to the servo controller
         if not self.simulate:
-            #######################self.port.write(cmd_str)
+            self.port.write(cmd_str)
             pass
+
+        print cmd_str
 
         return True
 
