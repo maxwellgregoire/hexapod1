@@ -80,6 +80,7 @@ class HFW(object):
 
             # run main loop
             self.quit = False
+            self.motors_zeroed = False
             while not self.quit:
                 self.step()
 
@@ -143,7 +144,7 @@ class HFW(object):
         end_time = time.time()
 
         # sleep for the remainder of the frame period
-        time.sleep(self.frame_period - (end_time - start_time))
+        time.sleep(max(self.frame_period - (end_time - start_time),0.0))
 
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
@@ -156,28 +157,57 @@ class HFW(object):
                     print "ERROR: leg PW of", leg_PWs[ileg][imotor], "invalid on leg", ileg, "motor", imotor
                     return False
 
-        # format the string that we send to the servo controller
+        # if the motors have already been zeroed, move them all at the same time
+        if self.motors_zeroed:
 
-        cmd_str = "" 
+            # format the string that we send to the servo controller
+            cmd_str = "" 
 
-        for iside in range(0,2):
-            for ileg in range(0,3):
-                for imotor in range(0,3):
+            for iside in range(0,2):
+                for ileg in range(0,3):
+                    for imotor in range(0,3):
 
-                    motor_index = iside*16 + ileg*4 + imotor
-                    cmd_str_seg = "#" + str(motor_index) + "P" + str(leg_PWs[iside*3+ileg][imotor])
-                    cmd_str += cmd_str_seg
+                        motor_index = iside*16 + ileg*4 + imotor
+                        cmd_str_seg = "#" + str(motor_index) + "P" + str(leg_PWs[iside*3+ileg][imotor])
+                        cmd_str += cmd_str_seg
 
-        cmd_str += "T"
-        cmd_str += str(int(self.frame_period*1000))
-        cmd_str += "\r"
+            cmd_str += "T"
+            cmd_str += str(int(self.frame_period*1000))
+            cmd_str += "\r"
 
-        # send the string to the servo controller
-        if not self.simulate:
-            self.port.write(cmd_str)
-            pass
+            # send the string to the servo controller
+            if not self.simulate:
+                self.port.write(cmd_str)
 
-        print cmd_str
+            print cmd_str
+
+        # if the motors have not been zeroed, zero them one leg at a time
+        else:
+
+            for iside in range(0,2):
+                for ileg in range(0,3):
+
+                    # format the string that we send to the servo controller
+                    cmd_str = ""
+
+                    for imotor in range(0,3):
+
+                        motor_index = iside*16 + ileg*4 + imotor
+                        cmd_str_seg = "#" + str(motor_index) + "P" + str(leg_PWs[iside*3+ileg][imotor])
+                        cmd_str += cmd_str_seg
+
+                    cmd_str += "T"
+                    cmd_str += "1000"
+                    cmd_str += "\r"
+            
+                    # send the string to the servo controller
+                    if not self.simulate:
+                        self.port.write(cmd_str)
+
+                    print cmd_str                    
+                    time.sleep(1.0)
+
+            self.motors_zeroed = True
 
         return True
 
