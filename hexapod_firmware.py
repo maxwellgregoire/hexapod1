@@ -100,10 +100,11 @@ class HFW(object):
     def step(self):
         """ Reads controller input and runs the hexapod accordingly for the next frame period """
 
-        print "stepping\r"
-
         # record time at which computation starts
         start_time = time.time()
+
+        # clear screen
+        self.stdscr.erase()
 
         # apply to servo controller previous frame's leg pulse widths, instruct to move over a frame period
         # assumes this frame won't take longer than a frame period to calculate
@@ -122,10 +123,16 @@ class HFW(object):
                 break;
             else:
                 keycodes.add(keycode)
-
+        
         # if user pressed q, quit
         if ord('q') in keycodes:
             self.quit = True
+
+        # display pressed keys
+        keys_str = "last frame's keys: "
+        for ikc in keycodes:
+            keys_str += chr(ikc) + " "
+        self.stdscr.addstr(0,0,keys_str)
 
         # pass the rest of the keycodes to the module that controls leg positions
             # calculate new floor position based on input
@@ -140,11 +147,27 @@ class HFW(object):
         # calculate new leg pulse widths based on new leg angles
         self.leg_PWs = self.leg_angles_to_PWs(self.leg_angles)
 
+        # print leg pulse widths
+        self.stdscr.addstr(2,0, "PWs at start of next frame:")
+        for ileg in range(0,6):
+            self.stdscr.addstr(3+ileg, 0, 
+                    str(self.leg_PWs[ileg][0]) + "  " + 
+                    str(self.leg_PWs[ileg][1]) + "  " + 
+                    str(self.leg_PWs[ileg][1]))
+
+        # print total time required for computation per frame
+        if hasattr(self, "time_difference"):
+            frame_time_str = "last frame's comp time: " + str(int(self.time_difference*1000)) + " ms"
+            self.stdscr.addstr(10,0, frame_time_str)
+
+        # draw terminal window
+        self.stdscr.refresh()
+
         # record time at which computation ends
-        end_time = time.time()
+        self.time_difference = time.time() - start_time
 
         # sleep for the remainder of the frame period
-        time.sleep(max(self.frame_period - (end_time - start_time),0.0))
+        time.sleep(max(self.frame_period - self.time_difference,0.0))
 
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
@@ -154,7 +177,6 @@ class HFW(object):
         for ileg in range(0,6):
             for imotor in range(0,3):
                 if leg_PWs[ileg][imotor] < 500 or 2500 < leg_PWs[ileg][imotor]:
-                    print "ERROR: leg PW of", leg_PWs[ileg][imotor], "invalid on leg", ileg, "motor", imotor
                     return False
 
         # if the motors have already been zeroed, move them all at the same time
@@ -179,8 +201,6 @@ class HFW(object):
             if not self.simulate:
                 self.port.write(cmd_str)
 
-            print cmd_str
-
         # if the motors have not been zeroed, zero them one leg at a time
         else:
 
@@ -204,7 +224,6 @@ class HFW(object):
                     if not self.simulate:
                         self.port.write(cmd_str)
 
-                    print cmd_str                    
                     time.sleep(1.0)
 
             self.motors_zeroed = True
