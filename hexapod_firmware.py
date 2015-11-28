@@ -40,12 +40,12 @@ class HFW(object):
         [0.0, 0.0, 0.5*np.pi],
         [0.0, 0.0, 0.5*np.pi]])
     std_PWs = np.array([ # pulse widths at reference angles 
-        [1910, 1670, 1450],
-        [1685, 1640, 1470],
-        [1050, 1690, 1440],
-        [1130, 1390, 1600],
-        [1475, 1380, 1505],
-        [2125, 1420, 1420]])
+        [1965, 1430, 1650],
+        [1520, 1470, 1550],
+        [1050, 1385, 1590],
+        [1010, 1550, 1530],
+        [1420, 1500, 1410],
+        [1980, 1550, 1430]])
     motor_m = 2000.0/np.pi # the full range of pulse widths, from 500 to 2500, corresponds to pi radians of rotation
                            # pulse width units per rad
     motor_m_sign = np.array([ # the sign of m
