@@ -56,6 +56,23 @@ class HFW(object):
         [-1.0, 1.0, -1.0],
         [-1.0, 1.0, -1.0]])
 
+    # constraints on motor pulse width values based on collisions with other body parts
+    # values of 2000 indicate no constraint
+    leg_PW_constraints_pos = np.array([ # leg pulse width cannot be greater than std_PWs + this
+        [50, 500, 2000],
+        [250, 500, 2000],
+        [1100, 500, 2000],
+        [1100, 600, 2000],
+        [200, 600, 2000],
+        [150, 600, 2000]])
+    leg_PW_constraints_neg = np.array([ # leg pulse width cannot be less than std_PWs - this
+        [-1100, -600, -2000],
+        [-200, -600, -2000],
+        [-150, -600, -2000],
+        [-50, -500, -2000],
+        [-250, -500, -2000],
+        [-1100, -500, -2000]])
+
     def __init__(self, simulate = False):
         """ Initializes a HFW object """
 
@@ -150,10 +167,11 @@ class HFW(object):
         # print leg pulse widths
         self.stdscr.addstr(2,0, "PWs at start of next frame:")
         for ileg in range(0,6):
-            self.stdscr.addstr(3+ileg, 0, 
-                    str(self.leg_PWs[ileg][0]) + "  " + 
-                    str(self.leg_PWs[ileg][1]) + "  " + 
-                    str(self.leg_PWs[ileg][1]))
+            for imotor in range(0,3):
+                if not self.constraint_applied[ileg][imotor]:
+                    self.stdscr.addstr(3 + ileg, 6*imotor, str(self.leg_PWs[ileg][imotor]))
+                else:
+                    self.stdscr.addstr(3 + ileg, 6*imotor, str(self.leg_PWs[ileg][imotor]), curses.A_STANDOUT)
 
         # print total time required for computation per frame
         if hasattr(self, "time_difference"):
@@ -172,12 +190,6 @@ class HFW(object):
     # argument is a [6,3] array
     def move_motors(self, leg_PWs):
         """ Moves the motors according to the specified pulse widths. Returns true if successful """
-
-        # check that all the pulse widths are valid (i.e. between 500 and 2500)
-        for ileg in range(0,6):
-            for imotor in range(0,3):
-                if leg_PWs[ileg][imotor] < 500 or 2500 < leg_PWs[ileg][imotor]:
-                    return False
 
         # if the motors have already been zeroed, move them all at the same time
         if self.motors_zeroed:
@@ -269,9 +281,32 @@ class HFW(object):
     def leg_angles_to_PWs(self, angles):
         """ Converts all leg angles to motor pulse widths """
 
-        #formula for pulse widths as a function of angle:
+        # formula for pulse widths as a function of angle:
         # (target PW) = ((target angle) - (angle for known PW))*m + (known PW)
         #       where m = +/- 2000/pi units of pulse width per radian (sign depends on motor rotation direction)
-        return ((angles - self.std_angles)*self.motor_m*self.motor_m_sign).astype(int) + self.std_PWs        
+        leg_PWs = ((angles - self.std_angles)*self.motor_m*self.motor_m_sign).astype(int) + self.std_PWs        
 
+        # apply single-parameter constraints to leg pulse widths 
+        # based on allowed pulse width values and collisions with other body parts
+        self.constraint_applied = np.zeros([6,3], dtype = np.bool)
 
+        for ileg in range(0,6):
+            for imotor in range(0,3):
+
+                # constraints based on allowed pulse width values
+                if leg_PWs[ileg][imotor] > 2490:
+                    leg_PWs[ileg][imotor] = 2490
+                    constraint_applied[ileg][imotor] = True
+                if leg_PWs[ileg][imotor] < 510:
+                    leg_PWs[ileg][imotor] = 510
+                    constraint_applied[ileg][imotor] = True
+                
+                # constraints based on collisions with other body parts
+                if leg_PWs[ileg][imotor] > self.std_PWs[ileg][imotor] + self.leg_PW_constraints_pos[ileg][imotor]:
+                    leg_PWs[ileg][imotor] = self.std_PWs[ileg][imotor] + self.leg_PW_constraints_pos[ileg][imotor]
+                    constraint_applied[ileg][imotor] = True
+                if leg_PWs[ileg][imotor] < self.std_PWs[ileg][imotor] + self.leg_PW_constraints_neg[ileg][imotor]:
+                    leg_PWs[ileg][imotor] = self.std_PWs[ileg][imotor] + self.leg_PW_constraints_neg[ileg][imotor]
+                    constraint_applied[ileg][imotor] = True
+
+        return leg_PWs
