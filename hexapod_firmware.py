@@ -3,6 +3,7 @@ import curses
 import numpy as np
 import serial
 from kinematics import Kinematics
+import sys, pygame
 
 # NOTES: 
 # distances in inches, time in seconds
@@ -19,7 +20,7 @@ from kinematics import Kinematics
 class HFW(object):
     """ Main hexapod firmware class """
 
-    frame_period = 1.0 # s
+    frame_period = 0.1 # s
 
     # distances used in leg_coords_to_angles()
     # all units in inches
@@ -101,6 +102,10 @@ class HFW(object):
             while not self.quit:
                 self.step()
 
+            # stop graphical debug
+            if self.kinematics.graphic_debug:
+                pygame.quit()
+
             # close connection
             if not self.simulate:
                 self.port.close()
@@ -148,7 +153,10 @@ class HFW(object):
         # display pressed keys
         keys_str = "last frame's keys: "
         for ikc in keycodes:
-            keys_str += chr(ikc) + " "
+            if ikc in range(256):
+                keys_str += chr(ikc) + " "
+            else:
+                keys_str += "key" + str(ikc) + " "
         self.stdscr.addstr(0,0,keys_str)
 
         # pass the rest of the keycodes to the module that controls leg positions
@@ -165,13 +173,21 @@ class HFW(object):
         self.leg_PWs = self.leg_angles_to_PWs(self.leg_angles)
 
         # print leg pulse widths
-        self.stdscr.addstr(2,0, "PWs at start of next frame:")
-        for ileg in range(0,6):
-            for imotor in range(0,3):
-                if not self.constraint_applied[ileg][imotor]:
-                    self.stdscr.addstr(3 + ileg, 6*imotor, str(self.leg_PWs[ileg][imotor]))
-                else:
-                    self.stdscr.addstr(3 + ileg, 6*imotor, str(self.leg_PWs[ileg][imotor]), curses.A_STANDOUT)
+        self.stdscr.addstr(2,0, "At start of next frame:")
+        for iside in range(0,2):
+            for ileg in range(0,3):
+                for imotor in range(0,3):
+                    if not self.constraint_applied[ileg+3*iside][imotor]:
+                        self.stdscr.addstr(3 + ileg, 6*imotor + 29*iside, str(self.leg_PWs[ileg+3*iside][imotor]))
+                    else:
+                        self.stdscr.addstr(3 + ileg, 6*imotor + 29*iside, str(self.leg_PWs[ileg+3*iside][imotor]), 
+                                curses.A_STANDOUT)
+
+        # indicate whether the legs are up or down
+        for iside in range(0,2):
+            for ileg in range(0,3):
+                if self.kinematics.is_on_ground[ileg + 3*iside]:
+                    self.stdscr.addstr(3 + ileg, 20 + iside*4, "*")
 
         # print total time required for computation per frame
         if hasattr(self, "time_difference"):
@@ -236,7 +252,8 @@ class HFW(object):
                     if not self.simulate:
                         self.port.write(cmd_str)
 
-                    time.sleep(1.0)
+                    if not self.simulate:
+                        time.sleep(1.0)
 
             self.motors_zeroed = True
 
@@ -296,17 +313,17 @@ class HFW(object):
                 # constraints based on allowed pulse width values
                 if leg_PWs[ileg][imotor] > 2490:
                     leg_PWs[ileg][imotor] = 2490
-                    constraint_applied[ileg][imotor] = True
+                    self.constraint_applied[ileg][imotor] = True
                 if leg_PWs[ileg][imotor] < 510:
                     leg_PWs[ileg][imotor] = 510
-                    constraint_applied[ileg][imotor] = True
+                    self.constraint_applied[ileg][imotor] = True
                 
                 # constraints based on collisions with other body parts
                 if leg_PWs[ileg][imotor] > self.std_PWs[ileg][imotor] + self.leg_PW_constraints_pos[ileg][imotor]:
                     leg_PWs[ileg][imotor] = self.std_PWs[ileg][imotor] + self.leg_PW_constraints_pos[ileg][imotor]
-                    constraint_applied[ileg][imotor] = True
+                    self.constraint_applied[ileg][imotor] = True
                 if leg_PWs[ileg][imotor] < self.std_PWs[ileg][imotor] + self.leg_PW_constraints_neg[ileg][imotor]:
                     leg_PWs[ileg][imotor] = self.std_PWs[ileg][imotor] + self.leg_PW_constraints_neg[ileg][imotor]
-                    constraint_applied[ileg][imotor] = True
+                    self.constraint_applied[ileg][imotor] = True
 
         return leg_PWs
