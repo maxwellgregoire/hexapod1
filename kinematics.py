@@ -217,7 +217,7 @@ class Kinematics(object):
                         0.0])
                 # rotate
                 if dzrot != 0.0: # check to avoid extra number crunching
-                    angle_to_rotate = -self.nom_dist_between_pickups*1.5 * self.max_zrot_speed / self.max_horiz_speed
+                    angle_to_rotate = self.nom_dist_between_pickups*1.5 * self.max_zrot_speed / self.max_horiz_speed
                     TPP = np.array([
                         TPP[0]*np.cos(angle_to_rotate) - TPP[1]*np.sin(angle_to_rotate),
                         TPP[0]*np.sin(angle_to_rotate) + TPP[1]*np.cos(angle_to_rotate),
