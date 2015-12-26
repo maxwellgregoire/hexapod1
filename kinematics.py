@@ -55,12 +55,12 @@ class Kinematics(object):
         # initialize starting leg coords (each row is [x,y,z])
         # leg motion will be somewhat centered around these coords
         self.starting_leg_coords = np.array([
-            [-3.625,2.875,self.z_floor],   # back left  
-            [0.0,4.1,self.z_floor],        # middle left  
-            [3.625,2.875,self.z_floor],    # front left   
-            [-3.625,-2.875,self.z_floor],  # back right  
-            [0.0,-4.1,self.z_floor],       # middle right  
-            [3.625,-2.875,self.z_floor]])  # front right
+            [-4.325,3.575,self.z_floor],   # back left  
+            [0.0,5.1,self.z_floor],        # middle left  
+            [4.325,3.575,self.z_floor],    # front left   
+            [-4.325,-3.575,self.z_floor],  # back right  
+            [0.0,-5.1,self.z_floor],       # middle right  
+            [4.325,-3.575,self.z_floor]])  # front right
         self.leg_coords = np.copy(self.starting_leg_coords)
 
         # whether or not the legs are on the ground
