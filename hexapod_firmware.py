@@ -20,7 +20,7 @@ import sys, pygame
 class HFW(object):
     """ Main hexapod firmware class """
 
-    frame_period = 0.1 # s
+    frame_period = 0.160 # s
 
     # distances used in leg_coords_to_angles()
     # all units in inches
@@ -255,7 +255,7 @@ class HFW(object):
                     if not self.simulate:
                         self.port.write(cmd_str)
 
-                    if not self.simulate:
+                    if not self.kinematics.graphic_debug:
                         time.sleep(1.0)
 
             self.motors_zeroed = True

@@ -67,7 +67,7 @@ class Kinematics(object):
         self.is_on_ground = np.ones(6, dtype = np.bool)
 
         # maximum speeds
-        self.max_horiz_speed = 0.25 # in/s
+        self.max_horiz_speed = 1.00 # in/s
         self.max_vert_speed = self.max_horiz_speed # in/s
 
         # We want the max z rotation speed to be such that the maximum speed of any of the starting leg coords
