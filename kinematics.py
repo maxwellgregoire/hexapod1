@@ -81,29 +81,43 @@ class Kinematics(object):
 
         self.dz_off_ground = 0.125 # in # distance off the ground a foot is when that foot is not on the ground
 
-        self.pickup_order = np.array([1,3,5,0,2,4]) # order to pick up legs when walking  
-        self.last_picked_up = 5 # iterator on the above array
-
         # Define "nominal distance" to be the distance traveled by the body of the robot as if it were
         #   translating steadily in 1 direction.
         # Nominal distance represents the distance traveled by the starting leg coords averaged over all legs.
         #   It should be approximately the same for any combination of translation and rotation.
         # Because the robot's speed may vary, the motion of the legs is defined in terms of nominal distance,
         #   not time.
-        # Whenever the robot travels a certain nominal distance, a leg picks up. 
+
+        # Define the pattern with which the robot picks up and puts down its legs.
+        # First, we define the number of legs that are off the ground at any given time during steady operation
+        # NOTE: MUST be 1, 2, or 3
+        self.n_legs_off_ground = 3 
+        # Next, we define how many legs are picked up each time the robot travels a nominal distance D0
+        # NOTE: MUST be a nonzero number that self.n_legs_off_ground is divisible by
+        #   i.e. the robot picks up one leg at a time or (self.n_legs_off_ground) legs at once
+        self.n_legs_pickup_at_once = 3 
+        # order to pick up legs when walking 
+        self.pickup_order = np.array([1,3,5,0,2,4])  
+        # iterator on the above array
+        self.last_picked_up = 5 
+
+        # Whenever the robot travels a certain nominal distance, one or more legs pick up. 
         #   That nominal distance interval D0 is defined as:
-        self.nom_dist_between_pickups = 0.4 # in 
+        self.nom_dist_between_pickups = 0.4 * float(self.n_legs_pickup_at_once) # in 
 
         # Nominal distance traveled since last leg pickup:
         self.nom_dist_traveled = self.nom_dist_between_pickups # in
 
-        # A leg spends a nominal distance 3*D0 in the air and 3*D0 on the ground.
+        # A leg spends a nominal distance DA in the air:
+        self.nom_dist_air = self.nom_dist_between_pickups * float(self.n_legs_off_ground)/float(self.n_legs_pickup_at_once)
+        # and a nominal distance DG on the ground:
+        self.nom_dist_ground = self.nom_dist_between_pickups * float(6 - self.n_legs_off_ground)/float(self.n_legs_pickup_at_once)
         # When it's in the air, it's moving toward its target placement point (TPP) 
         # The TPP is defined as the point at which that leg, starting at its starting leg coord,
-        #   would have moved to in a nominal distance 3*D0/2,
+        #   would have moved to in a nominal distance DG/2,
         #   given the current translation and rotation of the robot.
         # The leg moves toward the TPP at a rate that would cause it to reach the TPP after 
-        #   the robot has traveled 3*D0 with that leg up.
+        #   the robot has traveled a nominal distance DG with that leg up.
         # The caveat to this is that sudden changes in velocity or rotation rate could drastically
         #   change the TPP.
         # Therefore, we enforce a maximum speed to the leg's motion while in the air:
@@ -177,17 +191,21 @@ class Kinematics(object):
         # determine if any legs need to be put down or picked up
         # then reset the nominal distance traveled since last pickup
         if self.nom_dist_traveled >= self.nom_dist_between_pickups:
-            self.last_picked_up = (self.last_picked_up + 1) % 6 # increment in the ring of integers mod 6
+
+            # increment in the ring of integers mod 6
+            self.last_picked_up = (self.last_picked_up + self.n_legs_pickup_at_once) % 6  
             self.nom_dist_traveled -= self.nom_dist_between_pickups
             
-            # put down the leg that was picked up the longest time ago
-            self.is_on_ground[self.pickup_order[(self.last_picked_up - 3) % 6]] = True 
+            # put down the leg(s) that was(were) picked up the longest time ago
+            for ileg in range(0,self.n_legs_pickup_at_once):
+                self.is_on_ground[self.pickup_order[(self.last_picked_up - self.n_legs_off_ground - ileg)%6]] = True 
 
             # we pick up the next leg on the next step, rather than this step, 
             #   so we don't have a small amount of time with only 2 legs on the ground
             # do that here:
         else:
-            self.is_on_ground[self.pickup_order[self.last_picked_up]] = False
+            for ileg in range(0,self.n_legs_pickup_at_once):
+                self.is_on_ground[self.pickup_order[(self.last_picked_up - ileg)%6]] = False
 
         # move the legs
         for ileg in range(0,6):
@@ -212,12 +230,12 @@ class Kinematics(object):
                 #   translate
                 if dx != 0.0 or dy != 0.0: # check to prevent divide-by-zero
                     TPP += np.array([
-                        -dx/np.sqrt(dx**2+dy**2)*self.nom_dist_between_pickups*1.5, 
-                        -dy/np.sqrt(dx**2+dy**2)*self.nom_dist_between_pickups*1.5, 
+                        -dx/np.sqrt(dx**2+dy**2)*self.nom_dist_ground/2.0, 
+                        -dy/np.sqrt(dx**2+dy**2)*self.nom_dist_ground/2.0, 
                         0.0])
                 # rotate
                 if dzrot != 0.0: # check to avoid extra number crunching
-                    angle_to_rotate = self.nom_dist_between_pickups*1.5 * self.max_zrot_speed / self.max_horiz_speed
+                    angle_to_rotate = self.nom_dist_ground/2.0 * self.max_zrot_speed / self.max_horiz_speed
                     TPP = np.array([
                         TPP[0]*np.cos(angle_to_rotate) - TPP[1]*np.sin(angle_to_rotate),
                         TPP[0]*np.sin(angle_to_rotate) + TPP[1]*np.cos(angle_to_rotate),
@@ -228,16 +246,10 @@ class Kinematics(object):
                 displacement_to_TPP = TPP - self.leg_coords[ileg]
 
                 # Calculate the remaining nominal distance the robot must travel for this leg to reach the TPP
-                nom_dist_to_TPP = 3*self.nom_dist_between_pickups
-                # leg picked up the longest time ago...
-                if ileg == self.pickup_order[(self.last_picked_up - 2) % 6]:
-                    nom_dist_to_TPP = self.nom_dist_between_pickups - (self.nom_dist_traveled - self.nom_dist_traveled_this_step)
-                # leg picked up after that...
-                elif ileg == self.pickup_order[(self.last_picked_up - 1) % 6]:
-                    nom_dist_to_TPP = 2*self.nom_dist_between_pickups - (self.nom_dist_traveled - self.nom_dist_traveled_this_step)
-                # leg picked up most recently...
-                elif ileg == self.pickup_order[self.last_picked_up]:
-                    nom_dist_to_TPP = 3*self.nom_dist_between_pickups - (self.nom_dist_traveled - self.nom_dist_traveled_this_step)
+                for j in range(0, self.n_legs_off_ground):
+                    if ileg == self.pickup_order[(self.last_picked_up - (self.n_legs_off_ground-1-j)) % 6]:
+                        nom_dist_to_TPP = float(j/self.n_legs_pickup_at_once + 1)*self.nom_dist_between_pickups - (self.nom_dist_traveled - self.nom_dist_traveled_this_step)
+                        break
 
                 # Calculate the displacement vector for this step
                 displacement_this_step = displacement_to_TPP * self.nom_dist_traveled_this_step / nom_dist_to_TPP
