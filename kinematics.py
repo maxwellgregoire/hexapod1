@@ -22,11 +22,11 @@ import sys, pygame
 class Kinematics(object):
     """ Class that reads keyboard input to move the floor and then decides leg positions accordingly """
 
-    def __init__(self):
+    def __init__(self, graphic_debug = False):
         """ Initializes a Kinematics object with initial leg positions """
 
         # Whether or not to start a pygame screen to display leg positions
-        self.graphic_debug = True
+        self.graphic_debug = graphic_debug
 
         if self.graphic_debug:
 

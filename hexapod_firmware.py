@@ -74,7 +74,7 @@ class HFW(object):
         [-250, -500, -2000],
         [-1100, -500, -2000]])
 
-    def __init__(self, simulate = False):
+    def __init__(self, simulate = False, graphic_debug = False):
         """ Initializes a HFW object """
 
         self.simulate = simulate
@@ -89,7 +89,10 @@ class HFW(object):
         try:
 
             # initialize Kinematics 
-            self.kinematics = Kinematics()
+            if self.simulate and graphic_debug:
+                self.kinematics = Kinematics(True)
+            else:
+                self.kinematics = Kinematics(False)
 
             # open connection to servo controller
             if not self.simulate:

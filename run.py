@@ -4,13 +4,18 @@ import sys
 from hexapod_firmware import HFW
 
 simulate = False
+graphic_debug = False
 
-# if first argument was "-s", we are running in simulation mode 
-# (no communication port is opened)
-if len(sys.argv) > 1:
-    if sys.argv[1] == "-s":
-        simulate = True
+# parse arguments
+
+# -s = run in simulation mode (no communication port is opened)
+if '-s' in sys.argv:
+    simulate = True
+
+# -g = run with graphical debugging
+if '-g' in sys.argv:
+    graphic_debug = True
 
 # run the program
-hfw = HFW(simulate)
+hfw = HFW(simulate, graphic_debug)
 
