@@ -50,17 +50,17 @@ class Kinematics(object):
             # Set radius of dots used to represent leg positions 
             self.dot_radius = 5 # p
 
-        self.z_floor = -1.375 # in # current z position of the floor w.r.t. the body (origin)
+        self.starting_z_floor = -1.375 # in # current z position of the floor w.r.t. the body (origin)
 
         # initialize starting leg coords (each row is [x,y,z])
         # leg motion will be somewhat centered around these coords
         self.starting_leg_coords = np.array([
-            [-4.325,3.575,self.z_floor],   # back left  
-            [0.0,5.1,self.z_floor],        # middle left  
-            [4.325,3.575,self.z_floor],    # front left   
-            [-4.325,-3.575,self.z_floor],  # back right  
-            [0.0,-5.1,self.z_floor],       # middle right  
-            [4.325,-3.575,self.z_floor]])  # front right
+            [-4.325,3.575,self.starting_z_floor],   # back left  
+            [0.0,5.1,self.starting_z_floor],        # middle left  
+            [4.325,3.575,self.starting_z_floor],    # front left   
+            [-4.325,-3.575,self.starting_z_floor],  # back right  
+            [0.0,-5.1,self.starting_z_floor],       # middle right  
+            [4.325,-3.575,self.starting_z_floor]])  # front right
         self.leg_coords = np.copy(self.starting_leg_coords)
 
         # whether or not the legs are on the ground
@@ -68,7 +68,7 @@ class Kinematics(object):
 
         # maximum speeds
         self.max_horiz_speed = 1.00 # in/s
-        self.max_vert_speed = self.max_horiz_speed # in/s
+        self.max_vert_speed = self.max_horiz_speed / 2.0 # in/s
 
         # We want the max z rotation speed to be such that the maximum speed of any of the starting leg coords
         #   w.r.t. the floor is the same as when the robot is translating
@@ -79,7 +79,7 @@ class Kinematics(object):
                     np.sqrt(self.starting_leg_coords[ileg][0]**2 + self.starting_leg_coords[ileg][1]**2))
         self.max_zrot_speed = self.max_horiz_speed / max_xy_dist_starting_leg_coords # rad/s
 
-        self.dz_off_ground = 0.125 # in # distance off the ground a foot is when that foot is not on the ground
+        self.dz_off_ground = 0.25 # in # distance off the ground a foot is when that foot is not on the ground
 
         # Define "nominal distance" to be the distance traveled by the body of the robot as if it were
         #   translating steadily in 1 direction.
@@ -199,6 +199,7 @@ class Kinematics(object):
             # put down the leg(s) that was(were) picked up the longest time ago
             for ileg in range(0,self.n_legs_pickup_at_once):
                 self.is_on_ground[self.pickup_order[(self.last_picked_up - self.n_legs_off_ground - ileg)%6]] = True 
+                self.leg_coords[self.pickup_order[(self.last_picked_up - self.n_legs_off_ground - ileg)%6]][2] -= self.dz_off_ground
 
             # we pick up the next leg on the next step, rather than this step, 
             #   so we don't have a small amount of time with only 2 legs on the ground
@@ -206,6 +207,7 @@ class Kinematics(object):
         else:
             for ileg in range(0,self.n_legs_pickup_at_once):
                 self.is_on_ground[self.pickup_order[(self.last_picked_up - ileg)%6]] = False
+                self.leg_coords[self.pickup_order[(self.last_picked_up - ileg)%6]][2] += self.dz_off_ground
 
         # move the legs
         for ileg in range(0,6):
@@ -261,7 +263,7 @@ class Kinematics(object):
                     displacement_this_step *= dist_this_step_max / dist_this_step
 
                 # Apply this step's displacement to this leg
-                self.leg_coords[ileg] += np.copy(displacement_this_step)
+                self.leg_coords[ileg] += displacement_this_step
                 
                 if self.graphic_debug:
 

@@ -24,13 +24,13 @@ class HFW(object):
 
     # distances used in leg_coords_to_angles()
     # all units in inches
-    z_u = 0.625 # z distance between upper leg pivot and origin
-    x_s = np.array([-2.25, 0.0, 2.25, -2.25, 0.0, 2.25]) # x distance between shoulder pivot and origin
-    y_s = np.array([1.125, 1.5625, 1.125, -1.125, -1.5625, -1.125]) # y distance between shoulder pivot and origin
-    d_su = 0.5 # distance between shoulder pivot and upper leg pivot in plane parallel to upper and lower leg
-    d_sg = 0.125 # distance between shoulder pivot and ground contact in plane normal to upper leg
-    d_ul = 2.0 # upper leg length
-    d_lg = 2.625 # lower leg length
+    z_u = 0.32 + 0.34 + 0.09  # z distance between upper leg pivot and origin
+    x_s = np.array([-2.20, 0.0, 2.20, -2.20, 0.0, 2.20]) # x distance between shoulder pivot and origin
+    y_s = np.array([1.117, 1.56, 1.117, -1.117, -1.56, -1.117]) # y distance between shoulder pivot and origin
+    d_su = 0.48 # distance between shoulder pivot and upper leg pivot in plane parallel to upper and lower leg
+    d_sg = 0.07 # distance between shoulder pivot and ground contact in plane normal to upper leg
+    d_ul = 1.96 # upper leg length
+    d_lg = 1.76 + 0.76 + 0.09 # lower leg length
 
     # for leg_angles_to_PWs()
     std_angles = np.array([ # reference angles at which pulse width is known (rad)
